@@ -158,6 +158,9 @@
   <ItemGroup>
     <ClInclude Include="cyan_semaphore.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="ProducerConsumer.py" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

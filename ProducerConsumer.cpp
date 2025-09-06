@@ -23,72 +23,97 @@ SOFTWARE.
 */
 
 // ProducerConsumer.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+// Implementation of the classic Producer-Consumer problem using semaphores and threads in C++.
 
 #include <iostream>
 #include <thread>
 #include <mutex>
 #include "cyan_semaphore.h"
 
+// Buffer size (number of slots in the circular buffer)
 constexpr auto BSIZE = 0x10;
 
-char buffer[BSIZE];
-int nextin = 0;
-int nextout = 0;
-cyan::counting_semaphore<BSIZE> occupied_semaphore(0);
-cyan::counting_semaphore<BSIZE> empty_semaphore(BSIZE);
-cyan::binary_semaphore resource_mutex(1);
+// Shared buffer and indices for producer/consumer
+char buffer[BSIZE];      // Circular buffer for items
+int nextin = 0;          // Index for next produced item
+int nextout = 0;         // Index for next consumed item
 
+// Semaphores for synchronization
+cyan::counting_semaphore<BSIZE> occupied_semaphore(0); // Counts occupied slots
+cyan::counting_semaphore<BSIZE> empty_semaphore(BSIZE); // Counts empty slots
+cyan::binary_semaphore resource_mutex(1); // Binary semaphore for mutual exclusion
+
+/**
+ * @brief Producer function. Inserts an item into the buffer.
+ *        Waits for an empty slot, then acquires the mutex to insert the item.
+ *        Releases the mutex and signals that a new item is available.
+ * @param item The item to be produced and inserted into the buffer.
+ */
 void producer(char item) {
-	empty_semaphore.acquire();
-	resource_mutex.acquire();
+	empty_semaphore.acquire();      // Wait for at least one empty slot
+	resource_mutex.acquire();       // Enter critical section
 
-	buffer[nextin] = item;
+	buffer[nextin] = item;          // Insert item into buffer
 	nextin++;
-	nextin %= BSIZE;
+	nextin %= BSIZE;                // Wrap around (circular buffer)
 	printf("producer = %d\n", item);
 
-	resource_mutex.release();
-	occupied_semaphore.release();
+	resource_mutex.release();       // Exit critical section
+	occupied_semaphore.release();   // Signal that a new item is available
 }
 
+/**
+ * @brief Consumer function. Removes an item from the buffer.
+ *        Waits for an occupied slot, then acquires the mutex to remove the item.
+ *        Releases the mutex and signals that a slot is now empty.
+ * @return The consumed item.
+ */
 char consumer() {
 	char item = 0;
 
-	occupied_semaphore.acquire();
-	resource_mutex.acquire();
+	occupied_semaphore.acquire();   // Wait for at least one occupied slot
+	resource_mutex.acquire();       // Enter critical section
 
-	item = buffer[nextout];
+	item = buffer[nextout];         // Remove item from buffer
 	nextout++;
-	nextout %= BSIZE;
+	nextout %= BSIZE;               // Wrap around (circular buffer)
 	printf("consumer = %d\n", item);
 
-	resource_mutex.release();
-	empty_semaphore.release();
+	resource_mutex.release();       // Exit critical section
+	empty_semaphore.release();      // Signal that a slot is now empty
 
 	return(item);
 }
 
+/**
+ * @brief Producer thread function. Continuously produces random items.
+ */
 void producer_thread() {
 	for (;;) {
-		const char item = rand() % 255 + 1;
+		const char item = rand() % 255 + 1; // Generate random item
 		producer(item);
 	}
 }
 
+/**
+ * @brief Consumer thread function. Continuously consumes items from the buffer.
+ */
 void consumer_thread() {
 	for (;;) {
 		const char item = consumer();
 	}
 }
 
+/**
+ * @brief Program entry point. Initializes random seed, starts producer and consumer threads, and waits for them to finish.
+ */
 int main()
 {
-	srand((unsigned int)time(nullptr));
-	std::thread t1(producer_thread);
-	std::thread t2(consumer_thread);
-	t1.join();
-	t2.join();
+	srand((unsigned int)time(nullptr)); // Seed random number generator
+	std::thread t1(producer_thread);    // Start producer thread
+	std::thread t2(consumer_thread);    // Start consumer thread
+	t1.join();                          // Wait for producer thread to finish (never returns)
+	t2.join();                          // Wait for consumer thread to finish (never returns)
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
